@@ -1,3 +1,6 @@
+# coding: utf-8
+# above magic comment is required to support Ruby 1.9
+
 require "test_helper"
 require "mocha/setup"
 require "active_model"
