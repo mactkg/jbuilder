@@ -18,7 +18,7 @@ class JbuilderTemplate < Jbuilder
   def initialize(context, *args)
     @context = context
     @deferred_caches = {}
-
+    @cached_root = nil
     super(*args)
   end
 
@@ -53,6 +53,27 @@ class JbuilderTemplate < Jbuilder
       @deferred_caches[token] = fetcher
 
       merge! token => nil
+    else
+      yield
+    end
+  end
+
+  # Caches the json structure at the root using a string rather than the hash structure. This is considerably
+  # faster, but the drawback is that it only works, as the name hints, at the root. So you cannot
+  # use this approach to cache deeper inside the hierarchy, like in partials or such. Continue to use #cache! there.
+  #
+  # Example:
+  #
+  #   json.cache_root! @person do
+  #     json.extract! @person, :name, :age
+  #   end
+  #
+  #   # json.extra 'This will not work either, the root must be exclusive'
+  def cache_root!(key=nil, options={})
+    if @context.controller.perform_caching
+      raise "cache_root! can't be used after JSON structures have been defined" if @attributes.present?
+
+      @cached_root = _cache_fragment_for([ :root, key ], options) { yield; target! }
     else
       yield
     end
@@ -126,7 +147,7 @@ class JbuilderTemplate < Jbuilder
       output[search] = value
     end
 
-    output
+    @cached_root || output
   end
 
   private
@@ -216,7 +237,7 @@ class JbuilderTemplate < Jbuilder
       _scope{ _render_partial_with_options options.merge(collection: object) }
     else
       locals = ::Hash[options[:as], object]
-      _scope{ _render_partial options.merge(locals: locals) }
+      _scope{ _render_partial_with_options options.merge(locals: locals) }
     end
 
     set! name, value

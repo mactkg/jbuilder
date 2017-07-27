@@ -62,9 +62,9 @@ class JbuilderTemplateTest < ActionView::TestCase
     Rails.cache.clear
   end
 
-  def jbuild(source)
+  def jbuild(source, options = {})
     @rendered = []
-    partials = PARTIALS.clone
+    partials = options.fetch(:partials, PARTIALS).clone
     partials["test.json.jbuilder"] = source
     resolver = ActionView::FixtureResolver.new(partials)
     lookup_context.view_paths = [resolver]
@@ -343,18 +343,6 @@ class JbuilderTemplateTest < ActionView::TestCase
     assert_equal %w[a b c], result
   end
 
-  test "fragment caching works with previous version of cache digests" do
-    undef_context_methods :cache_fragment_name
-
-    @context.expects :fragment_name_with_digest
-
-    jbuild <<-JBUILDER
-      json.cache! "cachekey" do
-        json.name "Cache"
-      end
-    JBUILDER
-  end
-
   test "fragment caching works with current cache digests" do
     undef_context_methods :fragment_name_with_digest
 
@@ -422,6 +410,35 @@ class JbuilderTemplateTest < ActionView::TestCase
     JBUILDER
   end
 
+  test "caching root structure" do
+    undef_context_methods :fragment_name_with_digest, :cache_fragment_name
+
+    cache_miss_result = jbuild <<-JBUILDER
+      json.cache_root! "cachekey" do
+        json.name "Miss"
+      end
+    JBUILDER
+
+    cache_hit_result = jbuild <<-JBUILDER
+      json.cache_root! "cachekey" do
+        json.name "Hit"
+      end
+    JBUILDER
+
+    assert_equal cache_miss_result, cache_hit_result
+  end
+
+  test "failing to cache root after attributes have been defined" do
+    assert_raises ActionView::Template::Error, "cache_root! can't be used after JSON structures have been defined" do
+      jbuild <<-JBUILDER
+        json.name "Kaboom"
+        json.cache_root! "cachekey" do
+          json.name "Miss"
+        end
+      JBUILDER
+    end
+  end
+
   test "does not perform caching when controller.perform_caching is false" do
     controller.perform_caching = false
 
@@ -456,5 +473,21 @@ class JbuilderTemplateTest < ActionView::TestCase
     assert_equal %w[id name], result.keys
     assert_equal 123, result["id"]
     assert_equal "Chris Harris", result["name"]
+  end
+
+  test "renders partial via set! with same name as HTML partial" do
+    partials = {
+      "_blog_post.html.erb" => "Hello!",
+      "_blog_post.json.jbuilder" => BLOG_POST_PARTIAL
+    }
+
+    @post = BLOG_POST_COLLECTION.first
+
+    result = jbuild(<<-JBUILDER, partials: partials)
+      json.post @post, partial: "blog_post", as: :blog_post
+    JBUILDER
+
+    assert_not_nil result["post"]
+    assert_equal 1, result["post"]["id"]
   end
 end

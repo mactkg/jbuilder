@@ -1,7 +1,7 @@
 # Jbuilder
 
 Jbuilder gives you a simple DSL for declaring JSON structures that beats
-massaging giant hash structures. This is particularly helpful when the
+manipulating giant hash structures. This is particularly helpful when the
 generation process is fraught with conditionals and loops. Here's a simple
 example:
 
@@ -124,7 +124,7 @@ company.to_builder.target!
 ```
 
 You can either use Jbuilder stand-alone or directly as an ActionView template
-language. When required in Rails, you can create views ala show.json.jbuilder
+language. When required in Rails, you can create views a la show.json.jbuilder
 (the json is already yielded):
 
 ``` ruby
